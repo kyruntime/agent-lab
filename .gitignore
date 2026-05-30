@@ -1,0 +1,21 @@
+# Maven
+target/
+
+# IntelliJ output
+out/
+
+# IDE
+.idea/
+*.iml
+
+# Cursor
+.cursor/
+
+# Environment
+.env
+
+# macOS
+.DS_Store
+
+# Agent sessions
+.agent-lab/

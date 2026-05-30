@@ -1,0 +1,20 @@
+server:
+  port: 8080
+
+agent:
+  max-steps: 5
+  llm:
+    provider: aliyun-dashscope
+    base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
+    api-key: ${DASHSCOPE_API_KEY}
+    model: qwen3.6-max-preview
+    temperature: 0.2
+    max-tokens: 1024
+
+# MCP Server 配置（可选）
+# 每个条目是一个启动命令，用逗号分隔参数
+# 示例：npx,-y,@anthropic-ai/mcp-server-time
+# 本地测试用：bash,tools/test-mcp-server.sh
+mcp:
+  servers:
+    - bash,tools/test-mcp-server.sh

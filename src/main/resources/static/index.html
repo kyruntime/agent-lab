@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Lab</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #343541;
+            color: #d1d5db;
+            height: 100vh;
+            display: flex;
+        }
+
+        /* 侧边栏 */
+        .sidebar {
+            width: 260px;
+            background: #202123;
+            display: flex;
+            flex-direction: column;
+            padding: 8px;
+        }
+        .new-chat-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px;
+            border: 1px solid #4e4f60;
+            border-radius: 6px;
+            background: transparent;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.15s;
+        }
+        .new-chat-btn:hover { background: #2a2b32; }
+        .chat-list {
+            flex: 1;
+            overflow-y: auto;
+            margin-top: 8px;
+        }
+        .chat-item {
+            padding: 10px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            color: #c5c5d2;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            transition: background 0.15s;
+        }
+        .chat-item:hover { background: #2a2b32; }
+        .chat-item.active { background: #343541; }
+        .sidebar-footer {
+            padding: 12px;
+            border-top: 1px solid #4e4f60;
+            font-size: 12px;
+            color: #8e8ea0;
+            text-align: center;
+        }
+
+        /* 主区域 */
+        .main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* 对话区 */
+        .chat-area {
+            flex: 1;
+            overflow-y: auto;
+        }
+        .message-row {
+            padding: 24px 0;
+            border-bottom: 1px solid #444654;
+        }
+        .message-row.assistant { background: #444654; }
+        .message-inner {
+            max-width: 768px;
+            margin: 0 auto;
+            padding: 0 24px;
+            display: flex;
+            gap: 16px;
+        }
+        .avatar {
+            width: 30px;
+            height: 30px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+        .avatar.user-avatar { background: #5436da; color: white; }
+        .avatar.bot-avatar { background: #19c37d; color: white; }
+        .message-content {
+            line-height: 1.7;
+            font-size: 15px;
+            flex: 1;
+            padding-top: 2px;
+            white-space: pre-wrap;
+        }
+        .message-content.loading { color: #8e8ea0; }
+
+        /* 欢迎 */
+        .welcome {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #c5c5d2;
+        }
+        .welcome h2 { font-size: 28px; margin-bottom: 8px; }
+        .welcome p { font-size: 14px; color: #8e8ea0; }
+
+        /* 输入区 */
+        .input-wrapper {
+            padding: 16px;
+            background: #343541;
+        }
+        .input-box {
+            max-width: 768px;
+            margin: 0 auto;
+            position: relative;
+        }
+        .input-box textarea {
+            width: 100%;
+            padding: 12px 48px 12px 16px;
+            background: #40414f;
+            border: 1px solid #565869;
+            border-radius: 12px;
+            color: #fff;
+            font-size: 15px;
+            font-family: inherit;
+            resize: none;
+            outline: none;
+            min-height: 52px;
+            max-height: 200px;
+            line-height: 1.5;
+        }
+        .input-box textarea:focus { border-color: #8e8ea0; }
+        .input-box textarea::placeholder { color: #8e8ea0; }
+        .send-btn {
+            position: absolute;
+            right: 12px;
+            bottom: 10px;
+            width: 32px;
+            height: 32px;
+            border: none;
+            border-radius: 6px;
+            background: #19c37d;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            transition: opacity 0.15s;
+        }
+        .send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .send-btn:not(:disabled):hover { background: #1a8c61; }
+        .disclaimer {
+            text-align: center;
+            padding: 8px;
+            font-size: 11px;
+            color: #8e8ea0;
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <button class="new-chat-btn" onclick="newChat()">+ 新对话</button>
+        <div class="chat-list" id="chatList"></div>
+        <div class="sidebar-footer">Agent Lab - 学习 Agent 原理</div>
+    </div>
+    <div class="main">
+        <div class="chat-area" id="chatArea">
+            <div class="welcome">
+                <h2>Agent Lab</h2>
+                <p>基于 ReAct 循环的 AI Agent，支持工具调用 + 多轮对话</p>
+            </div>
+        </div>
+        <div class="input-wrapper">
+            <div class="input-box">
+                <textarea id="input" rows="1" placeholder="发送消息..." onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+                <button class="send-btn" id="sendBtn" onclick="send()">&#9654;</button>
+            </div>
+            <div class="disclaimer">Agent 可能犯错，请核实重要信息。</div>
+        </div>
+    </div>
+
+    <script>
+        let sessions = {};
+        let currentSessionId = null;
+
+        function newChat() {
+            currentSessionId = null;
+            renderChat();
+            document.getElementById('input').focus();
+        }
+
+        function switchSession(id) {
+            currentSessionId = id;
+            renderChat();
+            renderChatList();
+        }
+
+        function renderChat() {
+            const area = document.getElementById('chatArea');
+            area.innerHTML = '';
+            if (!currentSessionId || !sessions[currentSessionId]) {
+                area.innerHTML = `<div class="welcome"><h2>Agent Lab</h2><p>基于 ReAct 循环的 AI Agent，支持工具调用 + 多轮对话</p></div>`;
+                return;
+            }
+            const msgs = sessions[currentSessionId].messages;
+            msgs.forEach(m => appendMessageDOM(m.role, m.text, m.loading));
+            area.scrollTop = area.scrollHeight;
+        }
+
+        function renderChatList() {
+            const list = document.getElementById('chatList');
+            list.innerHTML = '';
+            Object.entries(sessions).reverse().forEach(([id, s]) => {
+                const div = document.createElement('div');
+                div.className = 'chat-item' + (id === currentSessionId ? ' active' : '');
+                div.textContent = s.title || '新对话';
+                div.onclick = () => switchSession(id);
+                list.appendChild(div);
+            });
+        }
+
+        function appendMessageDOM(role, text, loading) {
+            const area = document.getElementById('chatArea');
+            const row = document.createElement('div');
+            row.className = 'message-row ' + role;
+            row.innerHTML = `
+                <div class="message-inner">
+                    <div class="avatar ${role === 'user' ? 'user-avatar' : 'bot-avatar'}">
+                        ${role === 'user' ? 'U' : 'A'}
+                    </div>
+                    <div class="message-content ${loading ? 'loading' : ''}">${role === 'assistant' && !loading ? formatContent(text) : escapeHtml(text)}</div>
+                </div>
+            `;
+            area.appendChild(row);
+            area.scrollTop = area.scrollHeight;
+            return row;
+        }
+
+        function escapeHtml(s) {
+            return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        }
+
+        function formatContent(text) {
+            let escaped = escapeHtml(text);
+            // 检测 JSON 块并格式化
+            escaped = escaped.replace(/(\{[\s\S]*?\}|\[[\s\S]*?\])/g, (match) => {
+                try {
+                    let obj = JSON.parse(match.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>'));
+                    let pretty = JSON.stringify(obj, null, 2);
+                    return '<pre style="background:#2d2d3d;padding:8px 12px;border-radius:6px;overflow-x:auto;font-size:13px;color:#e6e6e6;margin:4px 0">' + escapeHtml(pretty) + '</pre>';
+                } catch(e) {
+                    return match;
+                }
+            });
+            // 简单 markdown 加粗
+            escaped = escaped.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+            return escaped;
+        }
+
+        function autoResize(el) {
+            el.style.height = 'auto';
+            el.style.height = Math.min(el.scrollHeight, 200) + 'px';
+        }
+
+        function handleKey(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                send();
+            }
+        }
+
+        function send() {
+            const input = document.getElementById('input');
+            const btn = document.getElementById('sendBtn');
+            const question = input.value.trim();
+            if (!question) return;
+
+            if (!currentSessionId) {
+                currentSessionId = 'pending';
+                sessions[currentSessionId] = {
+                    title: question.substring(0, 20) + (question.length > 20 ? '...' : ''),
+                    messages: []
+                };
+            }
+            sessions[currentSessionId].messages.push({ role: 'user', text: question });
+            renderChat();
+            renderChatList();
+
+            input.value = '';
+            input.style.height = 'auto';
+            btn.disabled = true;
+
+            let stepText = '';
+            sessions[currentSessionId].messages.push({ role: 'assistant', text: '🔍 正在推理...', loading: true });
+            renderChat();
+
+            const realId = currentSessionId !== 'pending' ? currentSessionId : '';
+            const url = `/api/agent/stream?question=${encodeURIComponent(question)}&sessionId=${encodeURIComponent(realId)}`;
+            const es = new EventSource(url);
+
+            es.addEventListener('session', (e) => {
+                const data = JSON.parse(e.data);
+                if (data.content && data.content !== currentSessionId) {
+                    const old = sessions[currentSessionId];
+                    delete sessions[currentSessionId];
+                    currentSessionId = data.content;
+                    sessions[currentSessionId] = old;
+                    renderChatList();
+                }
+            });
+
+            es.addEventListener('thinking', (e) => {
+                const data = JSON.parse(e.data);
+                if (stepText) stepText += '\n';
+                stepText += `🔍 第${data.step}步：${data.content}`;
+                updateLastAssistant(stepText);
+            });
+
+            es.addEventListener('tool_call', (e) => {
+                const data = JSON.parse(e.data);
+                stepText += `\n🔧 第${data.step}步：${data.content}`;
+                updateLastAssistant(stepText);
+            });
+
+            es.addEventListener('tool_result', (e) => {
+                const data = JSON.parse(e.data);
+                stepText += `\n📋 ${data.content}`;
+                updateLastAssistant(stepText);
+            });
+
+            es.addEventListener('answer', (e) => {
+                const data = JSON.parse(e.data);
+                const msgs = sessions[currentSessionId].messages;
+                msgs.pop();
+                msgs.push({ role: 'assistant', text: data.content });
+                renderChat();
+            });
+
+            es.addEventListener('error', (e) => {
+                const data = JSON.parse(e.data);
+                const msgs = sessions[currentSessionId].messages;
+                msgs.pop();
+                msgs.push({ role: 'assistant', text: '出错了：' + data.content });
+                renderChat();
+            });
+
+            es.addEventListener('done', () => {
+                es.close();
+                btn.disabled = false;
+                input.focus();
+                renderChatList();
+            });
+
+            es.onerror = () => {
+                es.close();
+                btn.disabled = false;
+                input.focus();
+            };
+        }
+
+        function updateLastAssistant(text) {
+            const msgs = sessions[currentSessionId].messages;
+            msgs[msgs.length - 1] = { role: 'assistant', text, loading: true };
+            renderChat();
+        }
+
+        document.getElementById('input').focus();
+    </script>
+</body>
+</html>
